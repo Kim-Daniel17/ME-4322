@@ -1,0 +1,212 @@
+clc
+clear
+% Coordinates
+A = [1.4 0.485 0];
+B = [1.67 0.99 0];
+C = [0.255 1.035 0];
+D = [0.285 0.055 0];
+E = [0.195 2.54 0];
+F = [-0.98 2.57 0];
+G = [0.05 0.2 0];
+H = [-1.71 4.259 0];
+
+
+% Midpoints of Various Links
+S1 = (A+B)/2;
+S2 = (B+C)/2;
+S3 = (D+E)/2; 
+S4 = (E+F)/2;
+S5 = (G+H)/2; 
+
+
+% Mass of Each Link in kg
+% Find linkage lengths
+AB = norm(B-A);
+BC = norm(C-B);
+DCE = norm(E-D);
+EF = norm(F-E);
+GFH = norm(H-G);
+
+
+% Linkage profile parameters
+density_alu = 2700;      
+thickness = 0.05;        
+width = 0.1;
+hole_dia = 0.06;
+
+area = thickness*width;
+hole_vol = thickness*pi*(hole_dia^2)/4;
+ends_vol = thickness*pi*(width/2)^2;
+
+
+% Final mass
+M_AB = density_alu*((AB*area) + ends_vol - 2*hole_vol)
+M_BC = density_alu*((BC*area) + ends_vol - 2*hole_vol)
+M_DCE = density_alu*((DCE*area) + ends_vol - 2*hole_vol)
+M_EF = density_alu*((EF*area) + ends_vol - 2*hole_vol)
+M_GFH = density_alu*((GFH*area) + ends_vol - 2*hole_vol)
+
+
+% Acceleration Due to Gravity
+g = 9.81;
+
+
+% Weight of Each Link
+W_AB = [0 -M_AB*g 0]
+W_BC = [0 -M_BC*g 0];
+W_DCE = [0 -M_DCE*g 0];
+W_EF = [0 -M_EF*g 0]
+W_GFH = [0 -M_GFH*g 0]
+
+
+% Link at center
+% Approximate as rod
+I_AB = (1/3)*M_AB*AB^2
+I_BC = (1/3)*M_BC*BC^2
+I_DCE = (1/3)*M_DCE*DCE^2;
+I_EF = (1/3)*M_EF*EF^2;
+I_GFH = (1/3)*M_GFH*GFH^2;
+
+
+% ANGULAR VELOCITIES
+
+% Define angular velocity variables
+syms w_AB w_BC w_DCE w_EF w_FG w_GFH real
+
+% Define angular velocity vectors
+w_AB_vec  = [0 0 w_AB];
+w_BC_vec  = [0 0 w_BC];
+w_DCE_vec = [0 0 w_DCE];
+w_EF_vec  = [0 0 w_EF];
+w_FG_vec  = [0 0 w_FG];
+w_GFH_vec = [0 0 w_GFH];
+
+
+% VELOCITY LOOP 1 - ABCDA
+
+eqn13 = cross(w_AB_vec,B-A) + cross(w_BC_vec,C-B) + cross(w_DCE_vec,D-C) == [0 0 0];
+
+
+% VELOCITY LOOP 2 - DEFGD
+
+eqn14 = cross(w_DCE_vec,E-D) + cross(w_EF_vec,F-E) + cross(w_FG_vec,G-F) == [0 0 0];
+
+% ANGULAR ACCELERATIONS
+
+% Define angular acceleration variables
+syms alpha_AB alpha_BC alpha_DCE alpha_EF alpha_FG alpha_GFH real
+
+% Define angular acceleration vectors
+alpha_AB_vec  = [0 0 alpha_AB];
+alpha_BC_vec  = [0 0 alpha_BC];
+alpha_DCE_vec = [0 0 alpha_DCE];
+alpha_EF_vec  = [0 0 alpha_EF];
+alpha_FG_vec  = [0 0 alpha_FG];
+alpha_GFH_vec = [0 0 alpha_GFH];
+
+
+% ACCELERATION LOOP 1 - ABCDA
+a_ba = cross(alpha_AB_vec,B-A) + cross(w_AB_vec,cross(w_AB_vec,B-A));
+a_cb = cross(alpha_BC_vec,C-B) + cross(w_BC_vec,cross(w_BC_vec,C-B));
+a_dc = cross(alpha_DCE_vec,D-C) + cross(w_DCE_vec,cross(w_DCE_vec,D-C));
+eqn15 = a_ba + a_cb + a_dc == [0 0 0];
+% ACCELERATION LOOP 2 - DEFGD
+a_ed = cross(alpha_DCE_vec,E-D) + cross(w_DCE_vec,cross(w_DCE_vec,E-D));
+a_fe = cross(alpha_EF_vec,F-E) + cross(w_EF_vec,cross(w_EF_vec,F-E));
+a_gf = cross(alpha_FG_vec,G-F) + cross(w_FG_vec,cross(w_FG_vec,F-G));
+eqn16 = a_ed + a_fe + a_gf == [0 0 0];
+
+% Known input angular velocity
+w_AB_value = 2.5;       % rad/s
+
+% Solve velocity equations
+Vel_Solution = solve( ...
+    [eqn13(1), eqn13(2), eqn14(1), eqn14(2)], ...
+    [w_BC, w_DCE, w_EF, w_FG]);
+
+% Substitute input velocity
+w_BC_value = double(subs(Vel_Solution.w_BC, w_AB, w_AB_value));
+w_DCE_value = double(subs(Vel_Solution.w_DCE, w_AB, w_AB_value));
+w_EF_value = double(subs(Vel_Solution.w_EF, w_AB, w_AB_value));
+w_FG_value = double(subs(Vel_Solution.w_FG, w_AB, w_AB_value));
+
+
+% SOLVE ANGULAR ACCELERATIONS
+
+% Constant input speed means input angular acceleration = 0
+alpha_AB_value = 0;
+
+% Substitute numerical angular velocities into acceleration equations
+Acc_Eqns = subs( ...
+    [eqn15(1), eqn15(2), eqn16(1), eqn16(2)], ...
+    [w_AB, w_BC, w_DCE, w_EF, w_FG, alpha_AB], ...
+    [w_AB_value, w_BC_value, w_DCE_value, ...
+     w_EF_value, w_FG_value, alpha_AB_value]);
+
+% Solve for angular accelerations
+Acc_Solution = solve(Acc_Eqns, ...
+    [alpha_BC, alpha_DCE, alpha_EF, alpha_FG]);
+
+alpha_BC_value = double(Acc_Solution.alpha_BC);
+alpha_DCE_value = double(Acc_Solution.alpha_DCE);
+alpha_EF_value = double(Acc_Solution.alpha_EF);
+alpha_FG_value = double(Acc_Solution.alpha_FG);
+% ACCELERATION OF CENTERS OF MASS
+% Acceleration of S1/A (COM of AB)
+Accln_S1_A = cross(alpha_AB_vec,S1-A) + cross(w_AB_vec,cross(w_AB_vec,S1-A));
+% Acceleration of S2/A (COM of BC)
+Accln_S2_A = cross(alpha_BC_vec,S2-B) + cross(w_BC_vec,cross(w_BC_vec,S2-B)) + cross(alpha_AB_vec,B-A) + cross(w_AB_vec,cross(w_AB_vec,B-A));
+% Acceleration of S3/D (COM of DCE)
+Accln_S3_D = cross(alpha_DCE_vec,S3-D) + cross(w_DCE_vec,cross(w_DCE_vec,S3-D));
+% Acceleration of S4/G (COM of EF)
+Accln_S4_G = cross(alpha_EF_vec,S4-F) + cross(w_EF_vec,cross(w_EF_vec,S4-F)) + cross(alpha_FG_vec,F-G) + cross(w_FG_vec,cross(w_FG_vec,F-G));
+% Acceleration of S5/G (COM of GFH)
+Accln_S5_G = cross(alpha_GFH_vec,S5-G) + cross(w_GFH_vec,cross(w_GFH_vec,S5-G));
+
+% JOINT VELOCITIES
+V_A = [0 0 0]
+V_B = cross([0 0 w_AB_value], B-A)
+V_C = V_B + cross([0 0 w_BC_value], C-B)
+V_D = [0 0 0];
+V_E = cross([0 0 w_DCE_value], E-D)
+V_F = V_E + cross([0 0 w_EF_value], F-E)
+V_G = V_F + cross([0 0 w_FG_value], G-F)
+% JOINT ACCELERATIONS
+% NUMERICAL JOINT ACCELERATIONS
+% Joint A 
+Acc_A = [0 0 0];
+% Joint B
+Acc_B = cross([0 0 alpha_AB_value], B-A) ...
+      + cross([0 0 w_AB_value], ...
+        cross([0 0 w_AB_value], B-A));
+% Joint C
+Acc_C = Acc_B ...
+      + cross([0 0 alpha_BC_value], C-B) ...
+      + cross([0 0 w_BC_value], ...
+        cross([0 0 w_BC_value], C-B));
+% Joint D 
+Acc_D = [0 0 0];
+% Joint E
+Acc_E = cross([0 0 alpha_DCE_value], E-D) ...
+      + cross([0 0 w_DCE_value], ...
+        cross([0 0 w_DCE_value], E-D));
+% Joint F
+Acc_F = Acc_E ...
+      + cross([0 0 alpha_EF_value], F-E) ...
+      + cross([0 0 w_EF_value], ...
+        cross([0 0 w_EF_value], F-E));
+% Joint G
+Acc_G = Acc_F ...
+      + cross([0 0 alpha_FG_value], G-F) ...
+      + cross([0 0 w_FG_value], ...
+        cross([0 0 w_FG_value], G-F));
+% ACCELERATION MAGNITUDES
+Acc_A_abs = norm(Acc_A)
+Acc_B_abs = norm(Acc_B)
+Acc_C_abs = norm(Acc_C)
+Acc_D_abs = norm(Acc_D)
+Acc_E_abs = norm(Acc_E)
+Acc_F_abs = norm(Acc_F)
+Acc_G_abs = norm(Acc_G)
+
+
