@@ -1,0 +1,19 @@
+clc
+clear
+
+%initial conditions
+
+x0 = [80 0]; 
+
+timespan = [0 10];
+
+[t,x] = ode45(@Classworkoct8,timespan,x0);
+
+plot(t,x(:,1))
+xlabel('Time (s)')
+ylabel('Velocity (m/s)')
+
+
+plot(t,x(:,2))
+xlabel('Time (s)')
+ylabel('Position (m)')
